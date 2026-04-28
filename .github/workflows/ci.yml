@@ -1,0 +1,40 @@
+name: PR Automated Code Review
+
+# 1. Trigger: Kích hoạt khi có PR hướng vào nhánh main
+on:
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  code-review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write # Bắt buộc để Bot có thể comment vào PR
+      checks: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+
+      # Chạy lệnh sinh ra file report checkstyle (nếu dùng Maven)
+      - name: Generate Checkstyle Report
+        run: mvn checkstyle:checkstyle
+        continue-on-error: true # Đảm bảo workflow tiếp tục chạy để comment lỗi
+
+      # 2. Inline Feedback: Đọc file report và comment trực tiếp vào PR
+      - name: Checkstyle Review Commenter
+        uses: dbelyaev/action-checkstyle@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: github-pr-review
+          # Đường dẫn tới file report do Maven tạo ra
+          checkstyle_report: target/checkstyle-result.xml 
+          # Đặt fail_on_error để job này thất bại nếu có lỗi (cần cho Branch Protection)
+          fail_on_error: true
